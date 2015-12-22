@@ -24,7 +24,7 @@ def eigval_freeslip(wnk, ranum, ncheb):
     """eigenvalue for given wavenumber and Rayleigh number with Freeslip BCs"""
 
     # second order derivative.
-    xxt, ddm = dm.chebdif(ncheb+2, 2)
+    ddm = dm.chebdif(ncheb+2, 2)
     # Freeslip BCs obtained by excluding boundary points.
     # factor 2 because reference interval is [-1,1]
     dd2 = 4.*ddm[1, 1:ncheb+1, 1:ncheb+1]
@@ -59,13 +59,12 @@ def eigval_noslip(wnk, ranum, ncheb):
     """eigenvalue for given wavenumber and Rayleigh number for Noslip BCs"""
 
     # second order derivative.
-    xxt, ddm = dm.chebdif(ncheb+2, 2)
+    ddm = dm.chebdif(ncheb+2, 2)
     # Freeslip BCs for temperature
     # factor 2 because reference interval is [-1,1]
     dd2 = 4.*ddm[1, 1:ncheb+1, 1:ncheb+1]
     # Clamped BCs for W: W=0 and W'=0
-    xxt, d4c = dm.cheb4c(ncheb+2)
-    dd4 = 16.*d4c
+    d4c = 16.*dm.cheb4c(ncheb+2)
     # identity
     ieye = np.eye(dd2.shape[0])
 
