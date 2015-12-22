@@ -64,7 +64,7 @@ def eigval_noslip(wnk, ranum, ncheb):
     # factor 2 because reference interval is [-1,1]
     dd2 = 4.*ddm[1, 1:ncheb+1, 1:ncheb+1]
     # Clamped BCs for W: W=0 and W'=0
-    d4c = 16.*dm.cheb4c(ncheb+2)
+    dd4 = 16.*dm.cheb4c(ncheb+2)
     # identity
     ieye = np.eye(dd2.shape[0])
 
