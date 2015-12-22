@@ -3,7 +3,7 @@
 # StabLinRB
 ======
 
-crit_ra.py: This Python script computes the linear stability in the Rayleigh-Bénard problem.
+Computes the linear stability in the Rayleigh-Bénard problem.
 
 The curve of critical Rayleigh number as function of wavenumber is computed
 and plotted and the minimum value of the Rayleigh number is obtained along
