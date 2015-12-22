@@ -1,4 +1,4 @@
-[![Code Health](https://landscape.io/github/mulvrova/StagPy/master/landscape.svg?style=flat-square)](https://landscape.io/github/mulvrova/StagPy/master)
+[![Code Health](https://landscape.io/github/labrosse/StabLinRB/master/landscape.svg?style=flat)](https://landscape.io/github/labrosse/StabLinRB/master)
 
 # StabLinRB
 ======
