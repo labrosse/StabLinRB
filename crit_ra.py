@@ -132,14 +132,22 @@ def ra_ks(rag, wng, ncheb, eigfun):
 
     return rag, kmin
 
-if COMPUTE_FREESLIP:
-    # find the minimum - Freeslip
-    ramin, kxmin = ra_ks(600, 2, NCHEB, eigval_freeslip)
-    print 'Free-slip: Ra=', ramin, 'kx=', kxmin
+def findplot_rakx(ncheb, eigfun, title):
+    """
+    Finds the minimum and plots Ra(kx)
+
+    Inputs
+    ----------
+    ncheb  = number of Chebyshev points in the calculation
+    eigfun = name of the eigenvalue finding function
+    title     = string variable to use in figure name
+    """
+    ramin, kxmin = ra_ks(600, 2, NCHEB, eigfun)
+    print title+': Ra=', ramin, 'kx=', kxmin
 
     # plot Ra as function of wavenumber
     wnum = np.linspace(0.3, 8, 100)
-    rayl = [search_ra(kxwn, 600, NCHEB, eigval_freeslip) for kxwn in wnum]
+    rayl = [search_ra(kxwn, 600, NCHEB, eigfun) for kxwn in wnum]
 
     fig = plt.figure()
     plt.plot(wnum, rayl, linewidth=2)
@@ -149,24 +157,14 @@ if COMPUTE_FREESLIP:
     plt.xticks(fontsize=FTSZ)
     plt.yticks(fontsize=FTSZ)
     plt.legend(loc='upper right', fontsize=FTSZ)
-    plt.savefig('Ra_kx_Freeslip.pdf', format='PDF')
+    plt.savefig('Ra_kx_'+title+'.pdf', format='PDF')
     plt.close(fig)
+
+
+if COMPUTE_FREESLIP:
+    # find the minimum - Freeslip
+    findplot_rakx(NCHEB, eigval_freeslip, 'Freeslip')
 
 if COMPUTE_NOSLIP:
     # find the minimum - Noslip
-    ramin, kxmin = ra_ks(1700, 2, NCHEB, eigval_noslip)
-    print 'No-slip: Ra=', ramin, 'kx=', kxmin
-
-    # plot Ra as function of wavenumber
-    wnum = np.linspace(0.3, 8, 100)
-    rayl = [search_ra(kxwn, 600, NCHEB, eigval_noslip) for kxwn in wnum]
-
-    fig = plt.figure()
-    plt.plot(wnum, rayl, linewidth=2)
-    plt.plot(kxmin, ramin, 'o', label=r'$Ra_{min}=%.2f ; k_x=%.2f$' %(ramin, kxmin))
-    plt.xlabel('Wavenumber', fontsize=FTSZ)
-    plt.ylabel('Rayleigh number', fontsize=FTSZ)
-    plt.xticks(fontsize=FTSZ)
-    plt.yticks(fontsize=FTSZ)
-    plt.legend(loc='upper right', fontsize=FTSZ)
-    plt.savefig('Ra_kx_Noslip.pdf', format='PDF')
+    findplot_rakx(NCHEB, eigval_noslip, 'Noslip')
