@@ -159,9 +159,7 @@ def eigval_general(wnk, ranum, ncheb, **kwargs):
                           ))
 
 # construction of the rhs matrix: identity almost everywhere
-    nbig = abig.shape[0]
-    nsmall = nbig-app.shape[0]
-    bbig = np.eye(nbig)
+    bbig = np.eye(abig.shape[0])
     # 0 for pressure
     bbig[range(d1p.shape[1]), range(d1p.shape[1])] = 1.e-10
     # Find the eigenvalues
@@ -177,7 +175,11 @@ def eigval_general(wnk, ranum, ncheb, **kwargs):
 
 
 def eigval_freeslip(wnk, ranum, ncheb, **kwargs):
-    """eigenvalue for given wavenumber and Rayleigh number with Freeslip BCs"""
+    """
+    Eigenvalue for given wavenumber and Rayleigh number with Freeslip BCs
+
+    The same result can be obtained using the relevant BCs in eigval_general
+    """
 
     # second order derivative.
     ddm = dm.chebdif(ncheb+2, 2)
@@ -339,45 +341,34 @@ def findplot_rakx(ncheb, eigfun, title, **kwargs):
 
     if plot_eigvec:
         egv, eigvec, zzr = eigfun(kxmin, ramin, ncheb, **kwargs)
+        print('Eigenvalue = ', egv)
         # setup indices for each field depending on BCs
         iu0 = ncheb
         iun = 2*ncheb
-        iuz0 = 0
-        iuzn = ncheb
         if bcsu[0, 1] == 0:
             # Dirichlet at z=-1/2
             iun -= 1
-#            iuz0 += 1
         if bcsu[1, 1] == 0:
             # Dirichlet ar z=1/2
-            iun = iun-1
-#            iuzn += 1
+            iun -= 1
 
         iw0 = iun
         iwn = iun+ncheb
-        iwz0 = 0
-        iwzn = ncheb
         if bcsw[0, 1] == 0:
             # Dirichlet at z=-1/2
-            iwn = iwn-1
-#            iwz0 += 1
+            iwn -= 1
         if bcsw[1, 1] == 0:
             # Dirichlet ar z=1/2
-            iwn = iwn-1
-#            iwzn -= 1
+            iwn -= 1
 
         it0 = iwn
         itn = iwn+ncheb
-        itz0 = 0
-        itzn = ncheb
         if bcst[0, 1] == 0:
             # Dirichlet at z=-1/2
-            itn = itn-1
-#            itz0 += 1
+            itn -= 1
         if bcst[1, 1] == 0:
             # Dirichlet ar z=1/2
-            itn = itn-1
-#            itzn -= 1
+            itn -= 1
 
         # now split the eigenvector into the different fields
         pmod = eigvec[0:ncheb]/np.max(np.abs(eigvec[0:ncheb]))
@@ -441,7 +432,7 @@ if COMPUTE_NOSLIP:
 
 if COMPUTE_FREERIGID:
     # using the more general function
-    findplot_rakx(NCHEB, eigval_general, 'RigidFree',
-                  bcsu=np.array([[1, 0, 0], [0, 1, 0]],
+    findplot_rakx(NCHEB, eigval_general, 'FreeFree',
+                  bcsu=np.array([[0, 1, 0], [0, 1, 0]],
                                 float), plot_eigvec=True)
 
