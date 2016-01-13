@@ -291,7 +291,7 @@ def ra_ks(rag, wng, ncheb, eigfun, **kwargs):
 
     return rag, kmin
 
-def stream_function(uvec, wvec, xcoo, zcoo, *geom):
+def stream_function(uvec, wvec, xcoo, zcoo, **kwargs):
     """
     Computes the stream function from vector field
 
@@ -300,17 +300,26 @@ def stream_function(uvec, wvec, xcoo, zcoo, *geom):
     wvec : vertical velocity, 2D array
     xcoo : xcoordinate, 1D array
     zcoo : zcoordinate, 1D array
-    *geom : geometry. Default cartesian = 'cart'
+    **kwargs :
+    geometry: 'cartesian' (default), 'spherical'
 
     OUTPUT
     psi : stream function
     """
     geometry = 'cartesian'
+    if kwargs != {}:
+        for key, value in kwargs.items():
+            if key == 'geometry':
+                geometry = value
+        
     nnr, nph = uvec.shape
     psi = np.zeros(uvec.shape)
     # integrate first on phi or x
     psi[0, 0] = 0.
     psi[0, 1:nph] = - integrate.cumtrapz(wvec[0, :], xcoo)
+    # multiply by rcmb in the spherical case
+    if geometry == 'spherical':
+        psi[0, 1:nph] = psi[0, 1:nph]*zcoo[0]
     # integrate on r or z
     for iph in range(0, nph):
         psi[1:nnr, iph] = psi[0, iph] + integrate.cumtrapz(uvec[:, iph], zcoo/2)
@@ -458,7 +467,7 @@ def findplot_rakx(ncheb, eigfun, title, **kwargs):
         t2d1, t2d2 = np.meshgrid(modx, tpl)
         t2d = np.real(t2d1*t2d2)
         plt.figure()
-        im = plt.pcolormesh(xgr, zgr, t2d, cmap='RdBu', linewidth=0,)
+        plt.pcolormesh(xgr, zgr, t2d, cmap='RdBu', linewidth=0,)
         plt.axis([xgr.min(), xgr.max(), zgr.min(), zgr.max()])
         # stream function
         u2d1, u2d2 = np.meshgrid(modx, upl)
@@ -466,7 +475,7 @@ def findplot_rakx(ncheb, eigfun, title, **kwargs):
         w2d1, w2d2 = np.meshgrid(modx, wpl)
         w2d = np.real(w2d1*w2d2)
         psi = stream_function(u2d, w2d, xvar, zpl/2)
-        pco = plt.contour(xgr, zgr, psi)
+        plt.contour(xgr, zgr, psi)
         # save image
         plt.savefig("T2D"+title+".pdf", format='PDF')
 
