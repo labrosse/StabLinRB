@@ -9,6 +9,7 @@ Can do both the no-slip and free-slip BCs, applying to both boundaries.
 import math
 import numpy as np
 from scipy import linalg
+from scipy import integrate
 import dmsuite.dmsuite as dm
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -290,6 +291,32 @@ def ra_ks(rag, wng, ncheb, eigfun, **kwargs):
 
     return rag, kmin
 
+def stream_function(uvec, wvec, xcoo, zcoo, *geom):
+    """
+    Computes the stream function from vector field
+
+    INPUT
+    uvec : horizontal velocity, 2D array
+    wvec : vertical velocity, 2D array
+    xcoo : xcoordinate, 1D array
+    zcoo : zcoordinate, 1D array
+    *geom : geometry. Default cartesian = 'cart'
+
+    OUTPUT
+    psi : stream function
+    """
+    geometry = 'cartesian'
+    nnr, nph = uvec.shape
+    psi = np.zeros(uvec.shape)
+    # integrate first on phi or x
+    psi[0, 0] = 0.
+    psi[0, 1:nph] = - integrate.cumtrapz(wvec[0, :], xcoo)
+    # integrate on r or z
+    for iph in range(0, nph):
+        psi[1:nnr, iph] = psi[0, iph] + integrate.cumtrapz(uvec[:, iph], zcoo/2)
+    psi = psi - np.mean(psi)
+    return psi
+
 def findplot_rakx(ncheb, eigfun, title, **kwargs):
     """
     Finds the minimum and plots Ra(kx)
@@ -396,12 +423,14 @@ def findplot_rakx(ncheb, eigfun, title, **kwargs):
             tmod = np.append(tmod, bcst[1, 2])
 
         # define the z values on which to interpolate modes
-        zpl = np.linspace(-1, 1, 100)
+        npoints = 100
+        zpl = np.linspace(-1, 1, npoints)
         # interpolate
         upl = dm.chebint(umod, zpl)
         wpl = dm.chebint(wmod, zpl)
         tpl = dm.chebint(tmod, zpl)
         ppl = dm.chebint(pmod, zpl)
+
         # plot the norm of the mode profiles
         fig, axe = plt.subplots(1, 4, sharey=True)
         plt.setp(axe, xlim=[-0.1, 1.1], ylim=[-0.5, 0.5], xticks=[0.1, 0.5, 0.9])
@@ -420,7 +449,26 @@ def findplot_rakx(ncheb, eigfun, title, **kwargs):
         axe[3].set_xlabel(r'$|P|$', fontsize=FTSZ)
         plt.savefig("Mode_profiles"+title+".pdf", format='PDF')
 
-
+        # now plot the modes in 2D
+        xvar = np.linspace(0, 2*np.pi/kxmin, npoints)
+        xgr, zgr = np.meshgrid(xvar, zpl)
+        zgr = 0.5*zgr
+        # temperature
+        modx = np.exp(1j*kxmin*xvar)
+        t2d1, t2d2 = np.meshgrid(modx, tpl)
+        t2d = np.real(t2d1*t2d2)
+        plt.figure()
+        im = plt.pcolormesh(xgr, zgr, t2d, cmap='RdBu', linewidth=0,)
+        plt.axis([xgr.min(), xgr.max(), zgr.min(), zgr.max()])
+        # stream function
+        u2d1, u2d2 = np.meshgrid(modx, upl)
+        u2d = np.real(u2d1*u2d2)
+        w2d1, w2d2 = np.meshgrid(modx, wpl)
+        w2d = np.real(w2d1*w2d2)
+        psi = stream_function(u2d, w2d, xvar, zpl/2)
+        pco = plt.contour(xgr, zgr, psi)
+        # save image
+        plt.savefig("T2D"+title+".pdf", format='PDF')
 
 if COMPUTE_FREESLIP:
     # find the minimum - Freeslip
