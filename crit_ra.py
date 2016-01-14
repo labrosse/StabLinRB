@@ -21,6 +21,8 @@ COMPUTE_FREESLIP = False
 COMPUTE_NOSLIP = False
 # Rigid bottom, free slip top
 COMPUTE_FREERIGID = True
+# whether to plot the stream function or use streamplot
+COMPUTE_STREAMF = False
 NCHEB = 10
 FTSZ = 14
 ######################
@@ -326,23 +328,23 @@ def stream_function(uvec, wvec, xcoo, zcoo, **kwargs):
     psi = psi - np.mean(psi)
     return psi
 
-def findplot_rakx(ncheb, eigfun, title, **kwargs):
+def plot_mode(wkn, ranum, ncheb, eigfun, title, **kwargs):
     """
-    Finds the minimum and plots Ra(kx)
+    Plots the fastest growing mode for wavenumber wkn and ranum
 
-    Inputs
-    ----------
-    ncheb  = number of Chebyshev points in the calculation
-    eigfun = name of the eigenvalue finding function
-    title  = string variable to use in figure name
-    **kwargs: most are just to be passed on to eigfun
-    plot_eigvec (True|False) controls whether to plot the eigenvector
-    of the first ustable mode. Default is False
+    INPUT
+    wkn : wavenumber
+    ranum : Rayleigh number
+    ncheb : number of Chebyshev points
+    eigfun : eigenvalue function
+    title : string to use in the pdf file name
+    **kwargs : passed on to eigfun
     """
     bcsu = np.array([[1, 0, 0], [1, 0, 0]], float)
     bcsw = np.array([[1, 0, 0], [1, 0, 0]], float)
     bcst = np.array([[1, 0, 0], [1, 0, 0]], float)
     plot_eigvec = False
+    npoints = 100
     if kwargs != {}:
         for key, value in kwargs.items():
             if key == 'plot_eigvec':
@@ -356,6 +358,138 @@ def findplot_rakx(ncheb, eigfun, title, **kwargs):
                 bcsw = value
             elif key == 'bcst':
                 bcst = value
+            elif key == 'npoints':
+                npoints = value
+
+    egv, eigvec, zzr = eigfun(wkn, ranum, ncheb, **kwargs)
+    print('Eigenvalue = ', egv)
+    # setup indices for each field depending on BCs
+    iu0 = ncheb
+    iun = 2*ncheb
+    if bcsu[0, 1] == 0:
+        # Dirichlet at z=-1/2
+        iun -= 1
+    if bcsu[1, 1] == 0:
+        # Dirichlet ar z=1/2
+        iun -= 1
+
+    iw0 = iun
+    iwn = iun+ncheb
+    if bcsw[0, 1] == 0:
+        # Dirichlet at z=-1/2
+        iwn -= 1
+    if bcsw[1, 1] == 0:
+        # Dirichlet ar z=1/2
+        iwn -= 1
+
+    it0 = iwn
+    itn = iwn+ncheb
+    if bcst[0, 1] == 0:
+        # Dirichlet at z=-1/2
+        itn -= 1
+    if bcst[1, 1] == 0:
+        # Dirichlet ar z=1/2
+        itn -= 1
+        
+    # now split the eigenvector into the different fields
+    pmod = eigvec[0:ncheb]/np.max(np.abs(eigvec[0:ncheb]))
+    umod = eigvec[iu0:iun]/np.max(np.abs(eigvec[iu0:iun]))
+    # add boundary values in Dirichlet case
+    if bcsu[0, 1] == 0:
+        # Dirichlet at z=-1/2
+        umod = np.insert(umod, 0, bcsu[0, 2])
+    if bcsu[1, 1] == 0:
+        # Dirichlet ar z=1/2
+        umod = np.append(umod, bcsu[1, 2])
+    wmod = eigvec[iw0:iwn]/np.max(np.abs(eigvec[iw0:iwn]))
+    if bcsw[0, 1] == 0:
+        # Dirichlet at z=-1/2
+        wmod = np.insert(wmod, [0], [bcsw[0, 2]])
+    if bcsw[1, 1] == 0:
+        # Dirichlet ar z=1/2
+        wmod = np.append(wmod, bcsw[1, 2])
+    tmod = eigvec[it0:itn]/np.max(np.abs(eigvec[it0:itn]))
+    if bcst[0, 1] == 0:
+        # Dirichlet at z=-1/2
+        tmod = np.insert(tmod, 0, bcst[0, 2])
+    if bcst[1, 1] == 0:
+        # Dirichlet ar z=1/2
+        tmod = np.append(tmod, bcst[1, 2])
+
+    # define the z values on which to interpolate modes
+    zpl = np.linspace(-1, 1, npoints)
+    # interpolate
+    upl = dm.chebint(umod, zpl)
+    wpl = dm.chebint(wmod, zpl)
+    tpl = dm.chebint(tmod, zpl)
+    ppl = dm.chebint(pmod, zpl)
+
+    # plot the norm of the mode profiles
+    fig, axe = plt.subplots(1, 4, sharey=True)
+    plt.setp(axe, xlim=[-0.1, 1.1], ylim=[-0.5, 0.5], xticks=[0.1, 0.5, 0.9])
+    axe[0].plot(np.abs(upl), zpl/2)
+    axe[0].plot(np.abs(umod), zzr/2, "o", label=r'$U$')
+    axe[0].set_ylabel(r'$z$', fontsize=FTSZ)
+    axe[0].set_xlabel(r'$|U|$', fontsize=FTSZ)
+    axe[1].plot(np.abs(wpl), zpl/2)
+    axe[1].plot(np.abs(wmod), zzr/2, "o", label=r'$W$')
+    axe[1].set_xlabel(r'$|W|$', fontsize=FTSZ)
+    axe[2].plot(np.abs(tpl), zpl/2)
+    axe[2].plot(np.abs(tmod), zzr/2, "o", label=r'$\theta$')
+    axe[2].set_xlabel(r'$|\theta|$', fontsize=FTSZ)
+    axe[3].plot(np.abs(ppl), zpl/2)
+    axe[3].plot(np.abs(pmod), zzr/2, "o", label=r'$P$')
+    axe[3].set_xlabel(r'$|P|$', fontsize=FTSZ)
+    plt.savefig("Mode_profiles"+title+".pdf", format='PDF')
+
+    # now plot the modes in 2D
+    xvar = np.linspace(0, 2*np.pi/wkn, npoints)
+    xgr, zgr = np.meshgrid(xvar, zpl)
+    zgr = 0.5*zgr
+    # temperature
+    modx = np.exp(1j*wkn*xvar)
+    t2d1, t2d2 = np.meshgrid(modx, tpl)
+    t2d = np.real(t2d1*t2d2)
+    plt.rcParams['contour.negative_linestyle'] = 'solid'
+    plt.figure()
+    plt.pcolormesh(xgr, zgr, t2d, cmap='RdBu', linewidth=0,)
+    plt.axis([xgr.min(), xgr.max(), zgr.min(), zgr.max()])
+    # stream function
+    u2d1, u2d2 = np.meshgrid(modx, upl)
+    u2d = np.real(u2d1*u2d2)
+    w2d1, w2d2 = np.meshgrid(modx, wpl)
+    w2d = np.real(w2d1*w2d2)
+    if COMPUTE_STREAMF:
+        psi = stream_function(u2d, w2d, xvar, zpl/2)
+        plt.contour(xgr, zgr, psi)
+    else:
+        speed = np.sqrt(u2d**2+w2d**2)
+        lw = 2*speed/speed.max()
+        plt.streamplot(xgr, zgr, u2d, w2d, linewidth=lw, density=0.7)
+    # save image
+    plt.savefig("mode"+title+".pdf", format='PDF')
+    return
+
+def findplot_rakx(ncheb, eigfun, title, **kwargs):
+    """
+    Finds the minimum and plots Ra(kx)
+
+    Inputs
+    ----------
+    ncheb  = number of Chebyshev points in the calculation
+    eigfun = name of the eigenvalue finding function
+    title  = string variable to use in figure name
+    **kwargs: most are just to be passed on to eigfun
+    plot_eigvec (True|False) controls whether to plot the eigenvector
+    of the first ustable mode. Default is False
+    """
+    if kwargs != {}:
+        for key, value in kwargs.items():
+            if key == 'plot_eigvec':
+                plot_eigvec = value
+                # alternate kwargs to not output eigenvector
+                kwargs2 = kwargs.copy()
+                kwargs2['plot_eigvec'] = False
 
     ramin, kxmin = ra_ks(600, 2, ncheb, eigfun, **kwargs2)
     print(title+': Ra=', ramin, 'kx=', kxmin)
@@ -376,108 +510,7 @@ def findplot_rakx(ncheb, eigfun, title, **kwargs):
     plt.close(fig)
 
     if plot_eigvec:
-        egv, eigvec, zzr = eigfun(kxmin, ramin, ncheb, **kwargs)
-        print('Eigenvalue = ', egv)
-        # setup indices for each field depending on BCs
-        iu0 = ncheb
-        iun = 2*ncheb
-        if bcsu[0, 1] == 0:
-            # Dirichlet at z=-1/2
-            iun -= 1
-        if bcsu[1, 1] == 0:
-            # Dirichlet ar z=1/2
-            iun -= 1
-
-        iw0 = iun
-        iwn = iun+ncheb
-        if bcsw[0, 1] == 0:
-            # Dirichlet at z=-1/2
-            iwn -= 1
-        if bcsw[1, 1] == 0:
-            # Dirichlet ar z=1/2
-            iwn -= 1
-
-        it0 = iwn
-        itn = iwn+ncheb
-        if bcst[0, 1] == 0:
-            # Dirichlet at z=-1/2
-            itn -= 1
-        if bcst[1, 1] == 0:
-            # Dirichlet ar z=1/2
-            itn -= 1
-
-        # now split the eigenvector into the different fields
-        pmod = eigvec[0:ncheb]/np.max(np.abs(eigvec[0:ncheb]))
-        umod = eigvec[iu0:iun]/np.max(np.abs(eigvec[iu0:iun]))
-        # add boundary values in Dirichlet case
-        if bcsu[0, 1] == 0:
-            # Dirichlet at z=-1/2
-            umod = np.insert(umod, 0, bcsu[0, 2])
-        if bcsu[1, 1] == 0:
-            # Dirichlet ar z=1/2
-            umod = np.append(umod, bcsu[1, 2])
-        wmod = eigvec[iw0:iwn]/np.max(np.abs(eigvec[iw0:iwn]))
-        if bcsw[0, 1] == 0:
-            # Dirichlet at z=-1/2
-            wmod = np.insert(wmod, [0], [bcsw[0, 2]])
-        if bcsw[1, 1] == 0:
-            # Dirichlet ar z=1/2
-            wmod = np.append(wmod, bcsw[1, 2])
-        tmod = eigvec[it0:itn]/np.max(np.abs(eigvec[it0:itn]))
-        if bcst[0, 1] == 0:
-            # Dirichlet at z=-1/2
-            tmod = np.insert(tmod, 0, bcst[0, 2])
-        if bcst[1, 1] == 0:
-            # Dirichlet ar z=1/2
-            tmod = np.append(tmod, bcst[1, 2])
-
-        # define the z values on which to interpolate modes
-        npoints = 100
-        zpl = np.linspace(-1, 1, npoints)
-        # interpolate
-        upl = dm.chebint(umod, zpl)
-        wpl = dm.chebint(wmod, zpl)
-        tpl = dm.chebint(tmod, zpl)
-        ppl = dm.chebint(pmod, zpl)
-
-        # plot the norm of the mode profiles
-        fig, axe = plt.subplots(1, 4, sharey=True)
-        plt.setp(axe, xlim=[-0.1, 1.1], ylim=[-0.5, 0.5], xticks=[0.1, 0.5, 0.9])
-        axe[0].plot(np.abs(upl), zpl/2)
-        axe[0].plot(np.abs(umod), zzr/2, "o", label=r'$U$')
-        axe[0].set_ylabel(r'$z$', fontsize=FTSZ)
-        axe[0].set_xlabel(r'$|U|$', fontsize=FTSZ)
-        axe[1].plot(np.abs(wpl), zpl/2)
-        axe[1].plot(np.abs(wmod), zzr/2, "o", label=r'$W$')
-        axe[1].set_xlabel(r'$|W|$', fontsize=FTSZ)
-        axe[2].plot(np.abs(tpl), zpl/2)
-        axe[2].plot(np.abs(tmod), zzr/2, "o", label=r'$\theta$')
-        axe[2].set_xlabel(r'$|\theta|$', fontsize=FTSZ)
-        axe[3].plot(np.abs(ppl), zpl/2)
-        axe[3].plot(np.abs(pmod), zzr/2, "o", label=r'$P$')
-        axe[3].set_xlabel(r'$|P|$', fontsize=FTSZ)
-        plt.savefig("Mode_profiles"+title+".pdf", format='PDF')
-
-        # now plot the modes in 2D
-        xvar = np.linspace(0, 2*np.pi/kxmin, npoints)
-        xgr, zgr = np.meshgrid(xvar, zpl)
-        zgr = 0.5*zgr
-        # temperature
-        modx = np.exp(1j*kxmin*xvar)
-        t2d1, t2d2 = np.meshgrid(modx, tpl)
-        t2d = np.real(t2d1*t2d2)
-        plt.figure()
-        plt.pcolormesh(xgr, zgr, t2d, cmap='RdBu', linewidth=0,)
-        plt.axis([xgr.min(), xgr.max(), zgr.min(), zgr.max()])
-        # stream function
-        u2d1, u2d2 = np.meshgrid(modx, upl)
-        u2d = np.real(u2d1*u2d2)
-        w2d1, w2d2 = np.meshgrid(modx, wpl)
-        w2d = np.real(w2d1*w2d2)
-        psi = stream_function(u2d, w2d, xvar, zpl/2)
-        plt.contour(xgr, zgr, psi)
-        # save image
-        plt.savefig("T2D"+title+".pdf", format='PDF')
+        plot_mode(kxmin, ramin, ncheb, eigfun, title, **kwargs)
 
 if COMPUTE_FREESLIP:
     # find the minimum - Freeslip
@@ -489,7 +522,7 @@ if COMPUTE_NOSLIP:
 
 if COMPUTE_FREERIGID:
     # using the more general function
-    findplot_rakx(NCHEB, eigval_general, 'FreeFree',
-                  bcsu=np.array([[0, 1, 0], [0, 1, 0]],
+    findplot_rakx(NCHEB, eigval_general, 'RigidRigid',
+                  bcsu=np.array([[1, 0, 0], [1, 0, 0]],
                                 float), plot_eigvec=True)
 
