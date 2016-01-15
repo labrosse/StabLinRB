@@ -27,7 +27,11 @@ NCHEB = 10
 FTSZ = 14
 ######################
 
-def eigval_general(wnk, ranum, ncheb, **kwargs):
+def eigval_general(wnk, ranum, ncheb,
+                   bcsu=np.array([[1, 0, 0], [1, 0, 0]], float),
+                   bcsw=np.array([[1, 0, 0], [1, 0, 0]], float),
+                   bcst=np.array([[1, 0, 0], [1, 0, 0]], float),
+                   output_eigvec=False):
     """
     Eigenvalue for given wavenumber and Rayleigh number with general BCs
 
@@ -45,58 +49,38 @@ def eigval_general(wnk, ranum, ncheb, **kwargs):
     wnk = horizontal wavenumber of the perturbation
     ranum = Rayleigh number
     ncheb = number of Chebyshev points in vertical direction
-    **kwargs :
-    bcsu=array of boundary conditions for u
-    bcsw=array of boundary conditions for w
-    bcst=array of boundary conditions for t
+    bcsu=array of boundary conditions for u (default Dirichlet)
+    bcsw=array of boundary conditions for w (default Dirichlet)
+    bcst=array of boundary conditions for t (default Dirichlet)
     plot_eigvec=True|False (default) whether to return the (right) eigenvector
 
     OUTPUT
     eigv = eigenvalue with the largest real part (fastest growing if positive).
     eigvec = corresponding eigen vector
     """
-    # Default boundary conditions : rigid-rigid
-    bcsu = np.array([[1, 0, 0], [1, 0, 0]], float)
-    bcsw = np.array([[1, 0, 0], [1, 0, 0]], float)
-    bcst = np.array([[1, 0, 0], [1, 0, 0]], float)
-    output_eigvec = False
-
-    if kwargs != {}:
-        for key, value in kwargs.items():
-            if key == 'bcsu':
-                bcsu = value
-            elif key == 'bcsw':
-                bcsw = value
-            elif key == 'bcst':
-                bcst = value
-            elif key == 'plot_eigvec':
-                output_eigvec = value
-            else:
-                print("kwarg value not understood %s == %s" %(key, value))
-                print("ignored")
-
 
     # setup indices for each field depending on BCs
     iu0 = 0
     iun = ncheb
+    iw0 = 0
+    iwn = ncheb
+    it0 = 0
+    itn = ncheb
+
     if bcsu[0, 1] == 0:
         # Dirichlet at z=-1/2
         iu0 = 1
-    if bcsu[1, 1] == 0:
-        # Dirichlet ar z=1/2
-        iun = ncheb-1
-
-    iw0 = 0
-    iwn = ncheb
     if bcsw[0, 1] == 0:
         # Dirichlet at z=-1/2
         iw0 = 1
+
+    if bcsu[1, 1] == 0:
+        # Dirichlet ar z=1/2
+        iun = ncheb-1
     if bcsw[1, 1] == 0:
         # Dirichlet ar z=1/2
         iwn = ncheb-1
 
-    it0 = 0
-    itn = ncheb
     if bcst[0, 1] == 0:
         # Dirichlet at z=-1/2
         it0 = 1
@@ -104,20 +88,22 @@ def eigval_general(wnk, ranum, ncheb, **kwargs):
         # Dirichlet ar z=1/2
         itn = ncheb-1
 
-    # compute differentiation matrices
-    # For horizontal velocity
-    d2u, d1u, phipu, phimu = dm.cheb2bc(ncheb, bcsu)
-    # For vertical velocity
-    d2w, d1w, phipw, phimw = dm.cheb2bc(ncheb, bcsw)
-    # For temperature
-    d2t, d1t, phipw, phimw = dm.cheb2bc(ncheb, bcst)
     # For pressure. No BCs but side values needed or removed
     # depending on the BCs for W. number of lines need to be
     # the same as that of d2w and depends on bcsw.
     if output_eigvec:
-        xxt, ddm = dm.chebdif(ncheb, 1, outputx=True)
+            xxt, ddm = dm.chebdif(ncheb, 1, outputx=True)
     else:
-        ddm = dm.chebdif(ncheb, 1)
+            ddm = dm.chebdif(ncheb, 1)
+
+    # compute differentiation matrices
+    # For horizontal velocity
+    d2u = dm.cheb2bc(ncheb, bcsu)[0]
+    # For vertical velocity
+    d2w, d1w = dm.cheb2bc(ncheb, bcsw)[0:2]
+    # For temperature
+    d2t = dm.cheb2bc(ncheb, bcst)[0]
+
     d1p = 2.*ddm[0, iw0:iwn, :]
     d1w = 2.*ddm[0, :, iw0:iwn]
 
@@ -293,7 +279,7 @@ def ra_ks(rag, wng, ncheb, eigfun, **kwargs):
 
     return rag, kmin
 
-def stream_function(uvec, wvec, xcoo, zcoo, **kwargs):
+def stream_function(uvec, wvec, xcoo, zcoo, geometry='cartesian'):
     """
     Computes the stream function from vector field
 
@@ -308,11 +294,6 @@ def stream_function(uvec, wvec, xcoo, zcoo, **kwargs):
     OUTPUT
     psi : stream function
     """
-    geometry = 'cartesian'
-    if kwargs != {}:
-        for key, value in kwargs.items():
-            if key == 'geometry':
-                geometry = value
         
     nnr, nph = uvec.shape
     psi = np.zeros(uvec.shape)
@@ -328,40 +309,24 @@ def stream_function(uvec, wvec, xcoo, zcoo, **kwargs):
     psi = psi - np.mean(psi)
     return psi
 
-def plot_mode(wkn, ranum, ncheb, eigfun, title, **kwargs):
+def plot_mode(kwn, ranum, ncheb, eigfun, title,
+                   bcsu=np.array([[1, 0, 0], [1, 0, 0]], float),
+                   bcsw=np.array([[1, 0, 0], [1, 0, 0]], float),
+                   bcst=np.array([[1, 0, 0], [1, 0, 0]], float),
+                   output_eigvec=True, npoints=100):
     """
-    Plots the fastest growing mode for wavenumber wkn and ranum
+    Plots the fastest growing mode for wavenumber kwn and ranum
 
     INPUT
-    wkn : wavenumber
+    kwn : wavenumber
     ranum : Rayleigh number
     ncheb : number of Chebyshev points
     eigfun : eigenvalue function
     title : string to use in the pdf file name
     **kwargs : passed on to eigfun
     """
-    bcsu = np.array([[1, 0, 0], [1, 0, 0]], float)
-    bcsw = np.array([[1, 0, 0], [1, 0, 0]], float)
-    bcst = np.array([[1, 0, 0], [1, 0, 0]], float)
-    plot_eigvec = False
-    npoints = 100
-    if kwargs != {}:
-        for key, value in kwargs.items():
-            if key == 'plot_eigvec':
-                plot_eigvec = value
-                # alternate kwargs to not output eigenvector
-                kwargs2 = kwargs.copy()
-                kwargs2['plot_eigvec'] = False
-            elif key == 'bcsu':
-                bcsu = value
-            elif key == 'bcsw':
-                bcsw = value
-            elif key == 'bcst':
-                bcst = value
-            elif key == 'npoints':
-                npoints = value
-
-    egv, eigvec, zzr = eigfun(wkn, ranum, ncheb, **kwargs)
+    egv, eigvec, zzr = eigfun(kwn, ranum, ncheb, bcsu=bcsu,
+                              bcsw=bcsw, bcst=bcst, output_eigvec=output_eigvec)
     print('Eigenvalue = ', egv)
     # setup indices for each field depending on BCs
     iu0 = ncheb
@@ -443,11 +408,11 @@ def plot_mode(wkn, ranum, ncheb, eigfun, title, **kwargs):
     plt.savefig("Mode_profiles"+title+".pdf", format='PDF')
 
     # now plot the modes in 2D
-    xvar = np.linspace(0, 2*np.pi/wkn, npoints)
+    xvar = np.linspace(0, 2*np.pi/kwn, npoints)
     xgr, zgr = np.meshgrid(xvar, zpl)
     zgr = 0.5*zgr
     # temperature
-    modx = np.exp(1j*wkn*xvar)
+    modx = np.exp(1j*kwn*xvar)
     t2d1, t2d2 = np.meshgrid(modx, tpl)
     t2d = np.real(t2d1*t2d2)
     plt.rcParams['contour.negative_linestyle'] = 'solid'
@@ -468,6 +433,7 @@ def plot_mode(wkn, ranum, ncheb, eigfun, title, **kwargs):
         plt.streamplot(xgr, zgr, u2d, w2d, linewidth=lw, density=0.7)
     # save image
     plt.savefig("mode"+title+".pdf", format='PDF')
+    plt.close(fig)
     return
 
 def findplot_rakx(ncheb, eigfun, title, **kwargs):
@@ -480,22 +446,22 @@ def findplot_rakx(ncheb, eigfun, title, **kwargs):
     eigfun = name of the eigenvalue finding function
     title  = string variable to use in figure name
     **kwargs: most are just to be passed on to eigfun
-    plot_eigvec (True|False) controls whether to plot the eigenvector
+    output_eigvec (True|False) controls whether to plot the eigenvector
     of the first ustable mode. Default is False
     """
     if kwargs != {}:
         for key, value in kwargs.items():
-            if key == 'plot_eigvec':
+            if key == 'output_eigvec':
                 plot_eigvec = value
                 # alternate kwargs to not output eigenvector
                 kwargs2 = kwargs.copy()
-                kwargs2['plot_eigvec'] = False
+                kwargs2['output_eigvec'] = False
 
     ramin, kxmin = ra_ks(600, 2, ncheb, eigfun, **kwargs2)
     print(title+': Ra=', ramin, 'kx=', kxmin)
 
     # plot Ra as function of wavenumber
-    wnum = np.linspace(0.4, 8, 10)
+    wnum = np.linspace(0.4, 8, 100)
     rayl = [search_ra(kxwn, ramin, ncheb, eigfun, **kwargs2) for kxwn in wnum]
 
     fig = plt.figure()
@@ -522,7 +488,7 @@ if COMPUTE_NOSLIP:
 
 if COMPUTE_FREERIGID:
     # using the more general function
-    findplot_rakx(NCHEB, eigval_general, 'RigidRigid',
-                  bcsu=np.array([[1, 0, 0], [1, 0, 0]],
-                                float), plot_eigvec=True)
+    findplot_rakx(NCHEB, eigval_general, 'FreeFree',
+                  bcsu=np.array([[0, 1, 0], [0, 1, 0]],
+                                float), output_eigvec=True)
 
