@@ -16,9 +16,9 @@ import seaborn as sns
 
 ######## Options #######
 # Free slip at both boudaries
-COMPUTE_FREESLIP = False
+COMPUTE_FREESLIP = True
 # No slip at both boundaries
-COMPUTE_NOSLIP = False
+COMPUTE_NOSLIP = True
 # Rigid bottom, free slip top
 COMPUTE_FREERIGID = True
 # whether to plot the stream function or use streamplot
@@ -92,17 +92,17 @@ def eigval_general(wnk, ranum, ncheb,
     # depending on the BCs for W. number of lines need to be
     # the same as that of d2w and depends on bcsw.
     if output_eigvec:
-            xxt, ddm = dm.chebdif(ncheb, 1, outputx=True)
+        xxt, ddm = dm.chebdif(ncheb, 1)
     else:
-            ddm = dm.chebdif(ncheb, 1)
+        ddm = dm.chebdif(ncheb, 1)[1]
 
     # compute differentiation matrices
     # For horizontal velocity
-    d2u = dm.cheb2bc(ncheb, bcsu)[0]
+    d2u = dm.cheb2bc(ncheb, bcsu)[1]
     # For vertical velocity
-    d2w, d1w = dm.cheb2bc(ncheb, bcsw)[0:2]
+    d2w, d1w = dm.cheb2bc(ncheb, bcsw)[1:3]
     # For temperature
-    d2t = dm.cheb2bc(ncheb, bcst)[0]
+    d2t = dm.cheb2bc(ncheb, bcst)[1]
 
     d1p = 2.*ddm[0, iw0:iwn, :]
     d1w = 2.*ddm[0, :, iw0:iwn]
@@ -171,7 +171,7 @@ def eigval_freeslip(wnk, ranum, ncheb, **kwargs):
     """
 
     # second order derivative.
-    ddm = dm.chebdif(ncheb+2, 2)
+    ddm = dm.chebdif(ncheb+2, 2)[1]
     # Freeslip BCs obtained by excluding boundary points.
     # factor 2 because reference interval is [-1,1]
     dd2 = 4.*ddm[1, 1:ncheb+1, 1:ncheb+1]
@@ -206,12 +206,12 @@ def eigval_noslip(wnk, ranum, ncheb, **kwargs):
     """eigenvalue for given wavenumber and Rayleigh number for Noslip BCs"""
 
     # second order derivative.
-    ddm = dm.chebdif(ncheb+2, 2)
+    ddm = dm.chebdif(ncheb+2, 2)[1]
     # Freeslip BCs for temperature
     # factor 2 because reference interval is [-1,1]
     dd2 = 4.*ddm[1, 1:ncheb+1, 1:ncheb+1]
     # Clamped BCs for W: W=0 and W'=0
-    dd4 = 16.*dm.cheb4c(ncheb+2)
+    dd4 = 16.*dm.cheb4c(ncheb+2)[1]
     # identity
     ieye = np.eye(dd2.shape[0])
 
@@ -456,6 +456,10 @@ def findplot_rakx(ncheb, eigfun, title, **kwargs):
                 # alternate kwargs to not output eigenvector
                 kwargs2 = kwargs.copy()
                 kwargs2['output_eigvec'] = False
+    else:
+        plot_eigvec = False
+        kwargs2 = {}
+        kwargs2['output_eigvec'] = False
 
     ramin, kxmin = ra_ks(600, 2, ncheb, eigfun, **kwargs2)
     print(title+': Ra=', ramin, 'kx=', kxmin)
@@ -488,7 +492,7 @@ if COMPUTE_NOSLIP:
 
 if COMPUTE_FREERIGID:
     # using the more general function
-    findplot_rakx(NCHEB, eigval_general, 'FreeFree',
-                  bcsu=np.array([[0, 1, 0], [0, 1, 0]],
+    findplot_rakx(NCHEB, eigval_general, 'FreeRigid',
+                  bcsu=np.array([[0, 1, 0], [1, 0, 0]],
                                 float), output_eigvec=True)
 
