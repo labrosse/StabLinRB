@@ -240,7 +240,7 @@ def search_ra(kwn, ray, ncheb, eigfun, **kwargs):
     while la0 > 0. or la1 < 0.:
         if la0 > 0.:
             ray1 = ray0
-            ray0 = ray0/.2
+            ray0 = ray0/2.
         if la1 < 0.:
             ray0 = ray1
             ray1 = 2.*ray1
